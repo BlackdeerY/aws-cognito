@@ -25,21 +25,20 @@ public class CognitoFilter extends GenericFilterBean {
         this.cognitoService = cognitoService;
     }
 
+    /*
+        직접 JWT를 읽어서 Authentication을 형성하지 않고,
+        aws와 통신하여 인증한다.
+        직접 JWT를 읽어서 Authentication을 사용하는 security 예시는 다른 프로젝트에서...
+     */
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest httpServletRequest = (HttpServletRequest) request;
         String accessToken = httpServletRequest.getHeader("Authorization");
+        CognitoUser cognitoUserOrNull = null;
         if (accessToken != null) {
-            /*
-                직접 JWT를 읽어서 Authentication을 형성하지 않고,
-                aws와 통신하여 인증한다.
-                직접 JWT를 읽어서 Authentication을 사용하는 security 예시는 다른 프로젝트에서...
-             */
-            CognitoUser cognitoUserOrNull = cognitoService.getUserOrNullByPersonalAccessToken(accessToken);
-            if (cognitoUserOrNull != null) {
-                request.setAttribute("cognitoUser", cognitoUserOrNull);
-            }
+            cognitoUserOrNull = cognitoService.getUserOrNullByPersonalAccessToken(accessToken);
         }
+        request.setAttribute("cognitoUser", cognitoUserOrNull);
         chain.doFilter(request, response);
     }
 }
