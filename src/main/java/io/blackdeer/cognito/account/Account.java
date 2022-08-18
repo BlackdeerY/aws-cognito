@@ -1,4 +1,4 @@
-package io.blackdeer.cognito.user;
+package io.blackdeer.cognito.account;
 
 import org.json.JSONObject;
 import org.springframework.lang.NonNull;

@@ -1,6 +1,4 @@
-package io.blackdeer.cognito.user;
-
-//import io.blackdeer.cognito.aws.CognitoAuthentication;
+package io.blackdeer.cognito.account;
 
 import io.blackdeer.cognito.aws.CognitoJWTParser;
 import io.blackdeer.cognito.aws.CognitoService;
