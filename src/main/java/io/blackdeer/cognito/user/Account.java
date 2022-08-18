@@ -1,5 +1,6 @@
 package io.blackdeer.cognito.user;
 
+import org.json.JSONObject;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.*;
@@ -35,6 +36,16 @@ public class Account {
         this.email = email;
     }
 
+    public Account(@NonNull JSONObject userinfo) {
+        assert (userinfo != null);
+        assert (userinfo.has("sub"));
+        assert (userinfo.has("username"));
+        assert (userinfo.has("email"));
+        this.sub = userinfo.getString("sub");
+        this.username = userinfo.getString("username");
+        this.email = userinfo.getString("email");
+    }
+
     public Long getId() {
         return id;
     }
@@ -65,5 +76,10 @@ public class Account {
 
     protected void setEmail(String email) {
         this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Account(id=%d, sub=%s, username=%s, email=%s)", id, sub, username, email);
     }
 }

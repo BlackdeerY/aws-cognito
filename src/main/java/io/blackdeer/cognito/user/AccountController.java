@@ -1,13 +1,19 @@
 package io.blackdeer.cognito.user;
 
-import io.blackdeer.cognito.aws.CognitoUser;
+//import io.blackdeer.cognito.aws.CognitoAuthentication;
+
+import io.blackdeer.cognito.aws.CognitoJWTParser;
+import io.blackdeer.cognito.aws.CognitoService;
 import org.hibernate.exception.ConstraintViolationException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -34,24 +40,44 @@ public class AccountController {
         this.accountService = accountService;
     }
 
-    @GetMapping("/test2")
-    public ResponseEntity test2(@RequestAttribute(required = false) CognitoUser cognitoUser) {
-        if (cognitoUser == null) {
-            return new ResponseEntity(HttpStatus.UNAUTHORIZED);
+    @GetMapping("/info")
+    public ResponseEntity getInfo(@RequestHeader(value = "Authorization") String authorization) {
+        String claimsOrNull = CognitoJWTParser.getCalimsOrNull(authorization);
+        if (claimsOrNull == null) {
+            return new ResponseEntity(HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity(cognitoUser.toString(), HttpStatus.OK);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.set("Content-Type", "application/json;charset=UTF-8");
+        return new ResponseEntity(claimsOrNull, httpHeaders, HttpStatus.OK);
+    }
+
+    @GetMapping("/db")
+    public ResponseEntity getAccount(@RequestHeader(value = "Authorization") String authorization) {
+        String subOrNull = CognitoJWTParser.getSubOrNull(authorization);
+        if (subOrNull == null) {
+            return new ResponseEntity(HttpStatus.BAD_REQUEST);
+        }
+        Account accountOrNull = accountService.getAccountOrNull(subOrNull);
+        if (accountOrNull == null) {
+            return new ResponseEntity(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity(accountOrNull.toString(), HttpStatus.OK);
     }
 
     @PutMapping("/insert")
-    public ResponseEntity insert(@RequestAttribute(required = false) CognitoUser cognitoUser) {
-        if (cognitoUser == null) {
-            return new ResponseEntity(HttpStatus.UNAUTHORIZED);
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = false)
+    public ResponseEntity insert(@RequestHeader(value = "Authorization") String authorization) {
+        JSONObject userinfoOrNull = CognitoService.getUserInfoOrNull(authorization);
+        if (userinfoOrNull == null) {
+            return new ResponseEntity(HttpStatus.BAD_REQUEST);
         }
-        boolean isInserted = accountService.insertAccount(cognitoUser);
+        boolean isInserted = accountService.insertAccount(userinfoOrNull);
         if (isInserted == false) {
             return new ResponseEntity(HttpStatus.CONFLICT);
         }
-        return new ResponseEntity(cognitoUser.toString(), HttpStatus.OK);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.set("Content-Type", "application/json;charset=UTF-8");
+        return new ResponseEntity(userinfoOrNull.toString(), httpHeaders, HttpStatus.OK);
     }
 
     @GetMapping("/test")
@@ -93,10 +119,4 @@ public class AccountController {
         System.out.println(stringBuilder.toString());
         return new ResponseEntity(HttpStatus.OK);
     }
-
-//    @PostMapping
-//    @Transactional(propagation = Propagation.REQUIRES_NEW)
-//    public ResponseEntity login() {
-//
-//    }
 }

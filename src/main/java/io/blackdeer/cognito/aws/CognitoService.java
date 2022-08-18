@@ -12,7 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -21,23 +23,24 @@ public class CognitoService {
 
     private static final Logger logger = LoggerFactory.getLogger(CognitoService.class);
 
+    @Value("${aws.cognito.user-info-uri}")
+    private static String userInfoUri;
+
     @Value("${aws.cognito.user-pool-id}")
     private String userPoolId;
-
-    @Value("${aws.cognito.client-id}")
-    private String clientId;
-
-    @Value("${aws.cognito.client-secret}")
-    private String clientSecret;
 
     private final AWSCredentials awsCredentials;
     private final AWSCredentialsProvider awsCredentialsProvider;
     private final AWSCognitoIdentityProvider awsCognitoIdentityProvider;
 
     @Autowired
-    public CognitoService(@Value("${aws.region}") String awsRegion,
+    public CognitoService(@Value("${aws.cognito.user-info-uri}") String userInfoUri,
+                          @Value("${aws.region}") String awsRegion,
                           @Value("${aws.access-key-id}") String awsAccessKeyId,
                           @Value("${aws.secret-key}") String awsSecretKey) {
+        if (CognitoService.userInfoUri == null) {
+            CognitoService.userInfoUri = userInfoUri;
+        }
         this.awsCredentials = new AWSCredentials() {
             @Override
             public String getAWSAccessKeyId() {
@@ -63,6 +66,21 @@ public class CognitoService {
         awsCognitoIdentityProviderClientBuilder.setRegion(awsRegion);
         awsCognitoIdentityProviderClientBuilder.setCredentials(awsCredentialsProvider);
         awsCognitoIdentityProvider = awsCognitoIdentityProviderClientBuilder.build();
+    }
+
+    public static JSONObject getUserInfoOrNull(String accessToken) {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add("Authorization", accessToken.startsWith("Bearer") ? accessToken : String.format("Bearer %s", accessToken));
+        HttpEntity httpRequest = new HttpEntity<>(httpHeaders);
+        JSONObject userInfoOrNull = null;
+        ResponseEntity<String> userInfoResponse = new RestTemplate().exchange(userInfoUri, HttpMethod.GET, httpRequest, String.class);
+        if (userInfoResponse.getStatusCode() == HttpStatus.OK) {
+            try {
+                userInfoOrNull = new JSONObject(userInfoResponse.getBody());
+            } catch (Exception e) {
+            }
+        }
+        return userInfoOrNull;
     }
 
     public CognitoUser getUserOrNullByPersonalAccessToken(String accessToken) {
