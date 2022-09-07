@@ -13,9 +13,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 @Service
@@ -150,21 +154,29 @@ public class CognitoService {
         }
     }
 
-    private List<UserType> getUsersListOrNull() {
+    private void saveUsersToList(@Nullable String paginationTokenOrNull,
+                                 @NonNull List<UserType> userList) {
+        assert (userList != null);
         ListUsersRequest listUsersRequest = new ListUsersRequest();
         listUsersRequest.setUserPoolId(userPoolId);
+        listUsersRequest.setPaginationToken(paginationTokenOrNull);
+        ListUsersResult listUsersResult = null;
         try {
-            ListUsersResult listUsersResult = awsCognitoIdentityProvider.listUsers(listUsersRequest);
-            return listUsersResult.getUsers();
+            listUsersResult = awsCognitoIdentityProvider.listUsers(listUsersRequest);
+            userList.addAll(listUsersResult.getUsers());
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
-            return null;
+            return;
+        }
+        if (listUsersResult != null && listUsersResult.getPaginationToken() != null) {
+            saveUsersToList(listUsersResult.getPaginationToken(), userList);
         }
     }
 
     public void printAllUsers() {
-        List<UserType> userTypeList = getUsersListOrNull();
-        if (userTypeList != null) {
+        List<UserType> userTypeList = new LinkedList<>();
+        saveUsersToList(null, userTypeList);
+        if (userTypeList.isEmpty() == false) {
             StringBuilder stringBuilder = new StringBuilder();
             for (UserType userType : userTypeList) {
                 String username = userType.getUsername();
@@ -210,11 +222,10 @@ public class CognitoService {
     }
 
     public void signOutAllGlobal() {
-        List<UserType> userTypeList = getUsersListOrNull();
-        if (userTypeList != null) {
-            for (UserType userType : userTypeList) {
-                signOutGlobal(userType.getUsername());
-            }
+        List<UserType> userTypeList = new LinkedList<>();
+        saveUsersToList(null, userTypeList);
+        for (UserType userType : userTypeList) {
+            signOutGlobal(userType.getUsername());
         }
     }
 }
